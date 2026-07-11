@@ -4,6 +4,9 @@
 #include "core/powerSave.h"
 #include "core/serial_commands/cli.h"
 #include "core/utils.h"
+#if defined(USB_as_HID)
+#include "modules/badusb_ble/ducky_typer.h"
+#endif
 #include "current_year.h"
 #include "esp32-hal-psram.h"
 #include "esp_task_wdt.h"
@@ -447,6 +450,9 @@ void setup() {
     begin_tft();
     init_clock();
     init_led();
+#if defined(USB_as_HID)
+    initializeUsbKeyboard();
+#endif
 
     options.reserve(20); // preallocate some options space to avoid fragmentation
 

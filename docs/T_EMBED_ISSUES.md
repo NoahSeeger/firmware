@@ -37,6 +37,20 @@ Der Fokus liegt auf dem T-Embed CC1101 Plus; andere Boards werden erst danach
 - Der Menü-Rebootpfad verwendet denselben 15-Sekunden-Neustart statt des bisher
   konkurrierenden Deep-Sleep-/Restart-Modus.
 
+## BadUSB-HID-Analyse 1.14 vs. 1.15
+
+Bruce 1.15 ergÃ¤nzt ein U2F-HID-GerÃ¤t. In der ursprÃ¼nglichen 1.15-Version
+registrierte sich dieses GerÃ¤t bereits wÃ¤hrend der globalen Konstruktion vor
+dem BadUSB-Keyboard. Die verwendete Arduino-TinyUSB-Schicht sendet
+Keyboard-Reports jedoch Ã¼ber HID-Interface 0. Dadurch konnte Windows das
+USB-GerÃ¤t enumerieren, wÃ¤hrend die Reports nicht als Tastatureingaben ankamen.
+
+Der Fork registriert das BadUSB-Keyboard jetzt frÃ¼hzeitig als Interface 0 und
+registriert U2F erst beim Ã–ffnen des U2F-MenÃ¼s. ZusÃ¤tzlich kann der
+ZurÃ¼ckbutton ein laufendes BadUSB-Skript sauber abbrechen; Text, Delays,
+Wiederholungen und Wartephasen prÃ¼fen den Abbruch kooperativ und geben am Ende
+alle gedrÃ¼ckten Tasten frei.
+
 ## Noch zu verifizieren
 
 Zusätzliche technische Ursache aus der zweiten Prüfung:

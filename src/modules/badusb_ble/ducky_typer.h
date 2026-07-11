@@ -17,6 +17,12 @@ extern HIDInterface *hid_usb;
 extern HIDInterface *hid_ble;
 extern uint8_t _Ask_for_restart;
 
+#ifdef USB_as_HID
+// Register the BadUSB keyboard before optional HID devices such as U2F.
+// USB itself is started later when a host connection is requested.
+void initializeUsbKeyboard();
+#endif
+
 struct DuckyCommand;
 struct DuckyCombination;
 

@@ -127,10 +127,18 @@ struct CborCursor {
 
 class U2fHidDevice : public USBHIDDevice {
 public:
-    U2fHidDevice() : _hid(HID_ITF_PROTOCOL_NONE) { USBHID::addDevice(this, sizeof(U2F_REPORT_DESCRIPTOR)); }
+    U2fHidDevice() : _hid(HID_ITF_PROTOCOL_NONE) {}
 
     void begin() {
         if (_started) return;
+        // Do not register U2F during global construction.  HID device 0 is
+        // reserved for the normal BadUSB keyboard; registering U2F before
+        // BadUSB changes the interface order and makes keyboard reports land
+        // on the wrong TinyUSB HID interface.
+        if (!_registered) {
+            _registered = USBHID::addDevice(this, sizeof(U2F_REPORT_DESCRIPTOR));
+            if (!_registered) return;
+        }
         USB.begin();
         _hid.begin();
         uint32_t t0 = millis();
@@ -346,6 +354,7 @@ private:
     }
 
     USBHID _hid;
+    bool _registered = false;
     Preferences _prefs;
     bool _prefsReady = false;
     bool _started = false;

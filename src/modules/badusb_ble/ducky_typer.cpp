@@ -12,6 +12,7 @@
 
 uint8_t _Ask_for_restart = 0;
 int currentOutputY = 0;
+static bool scriptAbortRequested = false;
 
 #if !defined(USB_as_HID)
 HardwareSerial mySerial(1);
@@ -19,6 +20,13 @@ HardwareSerial mySerial(1);
 
 HIDInterface *hid_usb = nullptr;
 HIDInterface *hid_ble = nullptr;
+#if defined(USB_as_HID)
+static bool usbHidStarted = false;
+
+void initializeUsbKeyboard() {
+    if (hid_usb == nullptr) hid_usb = new USBHIDKeyboard();
+}
+#endif
 
 enum DuckyCommandType {
     DuckyCommandType_Cmd,
@@ -411,7 +419,6 @@ void ducky_startKb(HIDInterface *&hid, bool ble) {
         } else {
 #if defined(USB_as_HID)
             hid = new USBHIDKeyboard();
-            USB.begin();
 #else
             mySerial.begin(CH9329_DEFAULT_BAUDRATE, SERIAL_8N1, BAD_RX, BAD_TX);
             delay(100);
@@ -431,6 +438,10 @@ void ducky_startKb(HIDInterface *&hid, bool ble) {
         hid->setDelay(bruceConfig.badUSBBLEKeyDelay);
     } else {
 #if defined(USB_as_HID)
+        if (!usbHidStarted) {
+            USB.begin();
+            usbHidStarted = true;
+        }
         hid->begin(keyboardLayouts[bruceConfig.badUSBBLEKeyboardLayout]);
         hid->setDelay(bruceConfig.badUSBBLEKeyDelay);
 
@@ -545,6 +556,7 @@ void ducky_setup(HIDInterface *&hid, bool ble) {
         if (!waitForButtonPress()) { goto EXIT; }
         delay(200);
         key_input(*fs, bad_script, hid);
+        if (scriptAbortRequested) goto EXIT;
 
         printStatusBadUSBBLE("Finished - " + String(BTN_ALIAS) + " to restart");
         if (!waitForButtonPress()) { goto EXIT; }
@@ -583,6 +595,7 @@ void key_input(FS fs, String bad_script, HIDInterface *_hid) {
     static int nextStringDelay = -1; // One-time delay for next STRING command (-1 = use default)
     static int defaultStringDelay = bruceConfig.badUSBBLEKeyDelay; // Default delay for all STRING commands
     currentOutputY = 0;
+    scriptAbortRequested = false;
 
     _hid->releaseAll();
 
@@ -616,6 +629,10 @@ void key_input(FS fs, String bad_script, HIDInterface *_hid) {
     while (payloadFile.available()) {
 
         previousMillis = millis(); // resets DimScreen
+        if (check(EscPress)) {
+            scriptAbortRequested = true;
+            goto EXIT;
+        }
         if (check(SelPress)) {
             if (!handlePauseResume()) { goto EXIT; }
         }
@@ -653,6 +670,10 @@ void key_input(FS fs, String bad_script, HIDInterface *_hid) {
         uint16_t i;
         uint16_t repeatCount = RepeatTmp.toInt();
         for (i = 0; i < repeatCount; i++) {
+            if (check(EscPress)) {
+                scriptAbortRequested = true;
+                goto EXIT;
+            }
             DuckyCommand *PriCmd = findDuckyCommand(Cmd);
             DuckyCommand *ArgCmd = findDuckyCommand(Argument.c_str());
 
@@ -667,8 +688,14 @@ void key_input(FS fs, String bad_script, HIDInterface *_hid) {
                     int currentDelay = (nextStringDelay >= 0) ? nextStringDelay : defaultStringDelay;
                     _hid->setDelay(currentDelay);
 
-                    _hid->print(Argument);
-                    if (strcmp(PriCmd->command, "STRINGLN") == 0) _hid->println();
+                    for (size_t charIndex = 0; charIndex < Argument.length(); charIndex++) {
+                        if (check(EscPress)) {
+                            scriptAbortRequested = true;
+                            goto EXIT;
+                        }
+                        _hid->write(static_cast<uint8_t>(Argument.charAt(charIndex)));
+                    }
+                    if (strcmp(PriCmd->command, "STRINGLN") == 0) _hid->write('\n');
 
                     // Reset one-time delay after use
                     if (nextStringDelay >= 0) { nextStringDelay = -1; }
@@ -679,6 +706,10 @@ void key_input(FS fs, String bad_script, HIDInterface *_hid) {
                     bool waitSelect = false;
                     while (!waitSelect) {
                         waitSelect = check(SelPress);
+                        if (check(EscPress)) {
+                            scriptAbortRequested = true;
+                            goto EXIT;
+                        }
                         delay(50); // Small delay to prevent excessive CPU usage
                     }
                     printStatusBadUSBBLE("Running");
@@ -686,11 +717,27 @@ void key_input(FS fs, String bad_script, HIDInterface *_hid) {
                 }
                 // DELAY and DEFAULTDELAY are processed here
                 else if (PriCmd->type == DuckyCommandType_Delay) {
-                    if ((int)PriCmd->key > 0) delay(DEF_DELAY); // Default delay is 10ms
+                    if ((int)PriCmd->key > 0) {
+                        for (uint32_t remaining = DEF_DELAY; remaining > 0; remaining -= min<uint32_t>(remaining, 10)) {
+                            if (check(EscPress)) {
+                                scriptAbortRequested = true;
+                                goto EXIT;
+                            }
+                            delay(min<uint32_t>(remaining, 10));
+                        }
+                    }
                     else {
                         int delayTime = Argument.toInt();
-                        if (delayTime > 0) delay(delayTime);
-                        else delay(DEF_DELAY);
+                        if (delayTime <= 0) delayTime = DEF_DELAY;
+                        while (delayTime > 0) {
+                            if (check(EscPress)) {
+                                scriptAbortRequested = true;
+                                goto EXIT;
+                            }
+                            uint32_t step = min(delayTime, 10);
+                            delay(step);
+                            delayTime -= step;
+                        }
                     }
                 }
                 // ALTCHAR command is processed here
@@ -742,6 +789,8 @@ void key_input(FS fs, String bad_script, HIDInterface *_hid) {
                 }
             }
 
+            if (scriptAbortRequested) goto EXIT;
+
             // Output to screen
             if (PriCmd == nullptr) {
                 printTFTBadUSBBLE(Command + " - UNKNOWN COMMAND", ALCOLOR, true);
@@ -764,6 +813,7 @@ EXIT:
     tft.setTextSize(FP);
     payloadFile.close();
     _hid->releaseAll();
+    if (scriptAbortRequested) printStatusBadUSBBLE("Canceled");
 }
 
 // Sends a simple command
@@ -1178,10 +1228,11 @@ bool waitForButtonPress() {
 bool handlePauseResume() {
     while (check(SelPress)); // hold the code in this position until release the btn
     printStatusBadUSBBLE("Paused - " + String(BTN_ALIAS) + " to resume");
-    if (!waitForButtonPress()) {
-        printStatusBadUSBBLE("Canceled");
-        return false; // Signal to exit
-    }
+        if (!waitForButtonPress()) {
+            scriptAbortRequested = true;
+            printStatusBadUSBBLE("Canceled");
+            return false; // Signal to exit
+        }
     printStatusBadUSBBLE("Running");
     return true; // Signal to continue
 }
