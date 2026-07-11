@@ -1,6 +1,7 @@
 #include "ConfigMenu.h"
 #include "../mykeyboard.h"
 #include "core/display.h"
+#include "core/bootloader.h"
 #include "core/i2c_finder.h"
 #include "core/main_menu.h"
 #include "core/settings.h"
@@ -239,6 +240,7 @@ void ConfigMenu::powerMenu() {
             {"Deep Sleep", goToDeepSleep          },
             {"Sleep",      setSleepMode           },
             {"Restart",    []() { ESP.restart(); }},
+            {"USB Bootloader", enterBootloader      },
             {"Power Off",
              []() {
                  // Confirmation dialog for power off

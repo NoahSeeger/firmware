@@ -103,6 +103,11 @@ pio device list
 pio run -e lilygo-t-embed-cc1101 -t upload
 ```
 
+Wenn die laufende Firmware noch bedienbar ist, zuerst `Config → Power → USB
+Bootloader` wählen. Der ESP32-S3 startet dann selbst in den Bootloader, sodass
+das Gehäuse normalerweise nicht geöffnet werden muss. Bei einer hängenden
+Firmware bleibt der physische Boot/Reset-Weg der Notfallweg.
+
 Ein erfolgreicher Compile beweist nur, dass der Quellcode gebaut wurde. Für
 USB- oder Tastenfehler ist zusätzlich ein Hardwaretest erforderlich.
 

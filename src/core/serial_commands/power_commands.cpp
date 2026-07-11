@@ -1,4 +1,5 @@
 #include "power_commands.h"
+#include "core/bootloader.h"
 #include "core/settings.h"
 #include <globals.h>
 
@@ -18,6 +19,11 @@ uint32_t sleepCallback(cmd *c) {
     return true;
 }
 
+uint32_t bootloaderCallback(cmd *c) {
+    enterBootloader();
+    return true;
+}
+
 void createPoweroffCommand(SimpleCLI *cli) { Command cmd = cli->addCommand("poweroff", poweroffCallback); }
 
 void createRebootCommand(SimpleCLI *cli) { Command cmd = cli->addCommand("reboot", rebootCallback); }
@@ -30,6 +36,7 @@ void createPowerCommand(SimpleCLI *cli) {
     Command cmdOff = cmd.addCommand("off", poweroffCallback);
     Command cmdReboot = cmd.addCommand("reboot", rebootCallback);
     Command cmdSleep = cmd.addCommand("sleep", sleepCallback);
+    Command cmdBootloader = cmd.addCommand("bootloader", bootloaderCallback);
 }
 
 void createPowerCommands(SimpleCLI *cli) {
