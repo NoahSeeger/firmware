@@ -63,6 +63,7 @@ public:
     USBHIDKeyboard();
     void begin(const uint8_t *layout = KeyboardLayout_en_US);
     void end(void);
+    bool isConnected() override;
     size_t write(uint8_t k);
     size_t write(const uint8_t *buffer, size_t size);
     size_t press(uint8_t k);

@@ -66,6 +66,8 @@ void USBHIDKeyboard::begin(const uint8_t *layout) {
 
 void USBHIDKeyboard::end() {}
 
+bool USBHIDKeyboard::isConnected() { return hid.ready(); }
+
 void USBHIDKeyboard::onEvent(esp_event_handler_t callback) {
     onEvent(ARDUINO_USB_HID_KEYBOARD_ANY_EVENT, callback);
 }

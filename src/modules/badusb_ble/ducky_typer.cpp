@@ -412,14 +412,6 @@ void ducky_startKb(HIDInterface *&hid, bool ble) {
 #if defined(USB_as_HID)
             hid = new USBHIDKeyboard();
             USB.begin();
-
-            // Wait for USB subsystem to be ready
-            while (!tud_mounted()) {
-                printStatusBadUSBBLE("Waiting USB Host...");
-                delay(500);
-            }
-
-            printStatusBadUSBBLE("USB Host Connected");
 #else
             mySerial.begin(CH9329_DEFAULT_BAUDRATE, SERIAL_8N1, BAD_RX, BAD_TX);
             delay(100);
@@ -441,6 +433,28 @@ void ducky_startKb(HIDInterface *&hid, bool ble) {
 #if defined(USB_as_HID)
         hid->begin(keyboardLayouts[bruceConfig.badUSBBLEKeyboardLayout]);
         hid->setDelay(bruceConfig.badUSBBLEKeyDelay);
+
+        // Enumeration alone is not enough: TinyUSB may be mounted while the
+        // HID interrupt endpoint is not ready to accept reports yet. Starting
+        // the script in that window silently drops the first/all key reports.
+        const uint32_t usbReadyStart = millis();
+        uint32_t lastUsbStatus = 0;
+        while ((!tud_mounted() || !hid->isConnected()) && millis() - usbReadyStart < 15000) {
+            if (millis() - lastUsbStatus >= 500) {
+                printStatusBadUSBBLE(tud_mounted() ? "Waiting USB HID..." : "Waiting USB Host...");
+                lastUsbStatus = millis();
+            }
+            delay(10);
+        }
+
+        if (!tud_mounted() || !hid->isConnected()) {
+            printStatusBadUSBBLE("USB HID not ready");
+            displayError("USB HID not ready", true);
+            returnToMenu = true;
+            return;
+        }
+
+        printStatusBadUSBBLE("USB HID Ready");
 #else
         mySerial.begin(CH9329_DEFAULT_BAUDRATE, SERIAL_8N1, BAD_RX, BAD_TX);
         delay(100);
@@ -539,9 +553,14 @@ void ducky_setup(HIDInterface *&hid, bool ble) {
     }
 EXIT:
     if (!ble) {
-        delete hid; // Keep the hid object alive for BLE
+#if defined(USB_as_HID)
+        // TinyUSB keeps the registered USBHIDDevice pointer for the lifetime
+        // of the USB device. Do not delete it here: a later BadUSB session
+        // would otherwise leave TinyUSB pointing at freed memory.
+        if (hid != nullptr) hid->releaseAll();
+#else
+        delete hid;
         hid = nullptr;
-#if !defined(USB_as_HID)
         mySerial.end();       // Stops UART Serial as HID
         Serial.begin(115200); // Force restart of Serial, just in case....
 #endif
@@ -750,12 +769,15 @@ EXIT:
 // Sends a simple command
 void key_input_from_string(String text) {
     ducky_startKb(hid_usb, false);
+    if (hid_usb == nullptr || returnToMenu) return;
 
     hid_usb->print(text.c_str()); // buggy with some special chars
 
+#if defined(USB_as_HID)
+    hid_usb->releaseAll();
+#else
     delete hid_usb;
     hid_usb = nullptr;
-#if !defined(USB_as_HID)
     mySerial.end();
 #endif
 }
@@ -936,9 +958,11 @@ void ducky_keyboard(HIDInterface *&hid, bool ble) {
     }
 EXIT:
     if (!ble) {
-        delete hid; // Keep the hid object alive for BLE
+#if defined(USB_as_HID)
+        if (hid != nullptr) hid->releaseAll();
+#else
+        delete hid;
         hid = nullptr;
-#if !defined(USB_as_HID)
         mySerial.end();       // Stops UART Serial as HID
         Serial.begin(115200); // Force restart of Serial, just in case....
 #endif

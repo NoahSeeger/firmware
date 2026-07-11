@@ -146,6 +146,25 @@ void InputHandler(void) {
     bool sel = !BTN_ACT;
     bool esc = !BTN_ACT;
 
+#ifdef T_EMBED_1101
+    // Emergency recovery must remain available while the main/UI task is
+    // blocked in USB enumeration, a script, or another long-running action.
+    // The input task calls this function independently every ~10 ms.
+    static uint32_t backPressedAt = 0;
+    static bool emergencyRestartTriggered = false;
+    const bool backPressed = digitalRead(BK_BTN) == BTN_ACT;
+    if (backPressed) {
+        if (backPressedAt == 0) backPressedAt = millis();
+        if (!emergencyRestartTriggered && millis() - backPressedAt >= 15000) {
+            emergencyRestartTriggered = true;
+            ESP.restart();
+        }
+    } else {
+        backPressedAt = 0;
+        emergencyRestartTriggered = false;
+    }
+#endif
+
     int newPos = encoder->getPosition();
     if (newPos != lastPos) {
         posDifference += (newPos - lastPos);
@@ -231,135 +250,12 @@ void checkReboot() {
     // Early exit if button not pressed
     if (digitalRead(BK_BTN) != BTN_ACT) return;
 
-    // Constants for better readability
-    const int SLEEP_TIMEOUT = 3;
-    const int RESTART_TIMEOUT = 5;
-    const int DISPLAY_DELAY = 500;
-    const char *SLEEP_TEXT = "DEEP SLEEP IN 3/3";
-    const char *RESTART_TEXT = "RESTART IN 5/5";
-
-    // Calculate banner dimensions once
-    const int maxTextWidth = tft.textWidth(SLEEP_TEXT, 1);
-    const int bannerX = tftWidth / 2 - maxTextWidth / 2 - 5;
-    const int bannerY = 12;
-    const int bannerWidth = maxTextWidth + 10;
-    const int bannerHeight = tft.fontHeight(1);
-
-    // Helper function to clear banner area
-    auto clearBanner = [&]() { tft.fillRect(bannerX, 7, bannerWidth, 18, bruceConfig.bgColor); };
-
-    // Helper function to clear text line only
-    auto clearTextLine = [&]() {
-        tft.fillRect(bannerX, bannerY, bannerWidth, bannerHeight, bruceConfig.bgColor);
-    };
-
-    uint32_t time_count = millis();
-    bool isRestartMode = false;
-    bool previousMode = false;
-    int countDown = 0;
-    bool bannerInitialized = false;
-
+    // Keep the menu-level fallback simple and deterministic. The input task
+    // above provides the same restart path when the main task is blocked.
+    const uint32_t start = millis();
     while (digitalRead(BK_BTN) == BTN_ACT) {
-        // Check if SEL_BTN is pressed for restart mode
-        isRestartMode = (digitalRead(SEL_BTN) == BTN_ACT);
-
-        // Handle mode change: reset timer and clear display
-        if (isRestartMode != previousMode && bannerInitialized) {
-            clearBanner();
-            time_count = millis();
-            countDown = 0;
-            bannerInitialized = false;
-            previousMode = isRestartMode;
-            delay(50);
-            continue;
-        }
-
-        previousMode = isRestartMode;
-
-        // Only show countdown after initial delay
-        if (millis() - time_count <= DISPLAY_DELAY) {
-            delay(10);
-            continue;
-        }
-
-        // Initialize banner on first display
-        if (!bannerInitialized) {
-            clearBanner();
-            bannerInitialized = true;
-        }
-
-        // Calculate current countdown value
-        int newCountDown = (millis() - time_count - DISPLAY_DELAY) / 1000 + 1;
-
-        // Only update display if countdown changed OR mode just initialized
-        if (newCountDown != countDown || !bannerInitialized) {
-            countDown = newCountDown;
-
-            // Initialize banner on first display
-            if (!bannerInitialized) {
-                clearBanner();
-                bannerInitialized = true;
-            }
-
-            tft.setTextSize(1);
-
-            if (isRestartMode) {
-                // RESTART MODE: 5 seconds
-                if (countDown >= RESTART_TIMEOUT + 1) {
-                    // Execute restart
-                    tft.fillScreen(bruceConfig.bgColor);
-                    tft.setTextColor(bruceConfig.secColor, bruceConfig.bgColor);
-                    tft.drawCentreString("RESTARTING...", tftWidth / 2, tftHeight / 2, 2);
-                    delay(1000);
-                    ESP.restart();
-                }
-
-                // Display countdown
-                tft.setTextColor(bruceConfig.secColor, bruceConfig.bgColor);
-                clearTextLine();
-                tft.drawCentreString(
-                    "RESTART IN " + String(countDown) + "/" + String(RESTART_TIMEOUT),
-                    tftWidth / 2,
-                    bannerY,
-                    1
-                );
-
-            } else {
-                // DEEP SLEEP MODE: Normal text, 3 seconds
-                if (countDown >= SLEEP_TIMEOUT + 1) {
-                    // Execute deep sleep
-                    tft.fillScreen(bruceConfig.bgColor);
-                    while (digitalRead(BK_BTN) == BTN_ACT);
-                    delay(200);
-                    powerDownNFC();
-                    powerDownCC1101();
-                    tft.sleep(true);
-                    delay(1000); // Delay for debouncing ;)
-                    digitalWrite(PIN_POWER_ON, LOW);
-                    esp_sleep_enable_ext0_wakeup(GPIO_NUM_6, LOW);
-                    esp_deep_sleep_start();
-                }
-
-                // Display countdown
-                tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-                clearTextLine();
-                tft.drawCentreString(
-                    "DEEP SLEEP IN " + String(countDown) + "/" + String(SLEEP_TIMEOUT),
-                    tftWidth / 2,
-                    bannerY,
-                    1
-                );
-            }
-        }
-
+        if (millis() - start >= 15000) ESP.restart();
         delay(10);
-    }
-
-    // Clear banner after button release
-    delay(30);
-    if (millis() - time_count > DISPLAY_DELAY) {
-        clearBanner();
-        drawStatusBar();
     }
 #endif
 }
