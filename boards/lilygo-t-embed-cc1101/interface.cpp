@@ -9,6 +9,25 @@ extern RotaryEncoder *encoder;
 RotaryEncoder *encoder = nullptr;
 IRAM_ATTR void checkPosition() { encoder->tick(); }
 
+#ifdef T_EMBED_1101
+// Keep the physical recovery button independent from the UI/input task. Some
+// keyboard and display paths temporarily suspend that task, but recovery must
+// remain available in those states too.
+static void tEmbedRecoveryTask(void *) {
+    uint32_t pressedAt = 0;
+
+    while (true) {
+        if (digitalRead(BK_BTN) == BTN_ACT) {
+            if (pressedAt == 0) pressedAt = millis();
+            if (millis() - pressedAt >= 15000) ESP.restart();
+        } else {
+            pressedAt = 0;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+#endif
+
 // Battery libs
 #if defined(T_EMBED_1101)
 // Power handler for battery detection
@@ -100,6 +119,7 @@ void _setup_gpio() {
 
 #ifdef T_EMBED_1101
     pinMode(BK_BTN, INPUT);
+    xTaskCreate(tEmbedRecoveryTask, "TEmbedRecovery", 2048, nullptr, 3, nullptr);
 #endif
     pinMode(ENCODER_KEY, INPUT);
     encoder = new RotaryEncoder(ENCODER_INA, ENCODER_INB, RotaryEncoder::LatchMode::TWO03);
@@ -145,25 +165,6 @@ void InputHandler(void) {
     static int lastPos = 0;
     bool sel = !BTN_ACT;
     bool esc = !BTN_ACT;
-
-#ifdef T_EMBED_1101
-    // Emergency recovery must remain available while the main/UI task is
-    // blocked in USB enumeration, a script, or another long-running action.
-    // The input task calls this function independently every ~10 ms.
-    static uint32_t backPressedAt = 0;
-    static bool emergencyRestartTriggered = false;
-    const bool backPressed = digitalRead(BK_BTN) == BTN_ACT;
-    if (backPressed) {
-        if (backPressedAt == 0) backPressedAt = millis();
-        if (!emergencyRestartTriggered && millis() - backPressedAt >= 15000) {
-            emergencyRestartTriggered = true;
-            ESP.restart();
-        }
-    } else {
-        backPressedAt = 0;
-        emergencyRestartTriggered = false;
-    }
-#endif
 
     int newPos = encoder->getPosition();
     if (newPos != lastPos) {

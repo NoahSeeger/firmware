@@ -49,6 +49,8 @@ Zusätzliche technische Ursache aus der zweiten Prüfung:
   erneut versucht.
 - Der T-Embed-Build wurde erfolgreich erzeugt; offen ist der Test auf echter
   Hardware.
+- Die 15-Sekunden-Recovery läuft zusätzlich in einem eigenen FreeRTOS-Task,
+  damit sie auch bei einem suspendierten UI/Input-Task erreichbar bleibt.
 
 - Build für `lilygo-t-embed-cc1101`.
 - USB-Enumeration und HID-Ready-Zustand mit einem Windows-PC.
