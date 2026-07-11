@@ -123,6 +123,10 @@ Keinen Erfolg behaupten, solange die zum Symptom passende Hardwareprüfung fehlt
 - Beim nativen TinyUSB-HID darf das registrierte `USBHIDKeyboard`-Objekt nicht
   nach jedem BadUSB-Lauf gelöscht werden; TinyUSB behält den Gerätezeiger.
 - `tud_mounted()` allein beweist keine Sendebereitschaft des HID-Endpoints.
+- `ledOffWithDisplay` ist eine persistente LED-Einstellung. Standardmäßig ist
+  sie aktiviert: Bei echtem Display-Off oder Sleep wird die RGB-LED dunkel und
+  beim Aufwachen mit der gespeicherten Farbe/Helligkeit/Effektlogik restauriert.
+  Die reine Dimmer-Phase lässt die LED bewusst an.
 - Die T-Embed-Recovery läuft in einem eigenen Task, damit sie nicht vom
   blockierten oder suspendierten UI-/Input-Task abhängt.
 - Neue Erkenntnisse in `docs/T_EMBED_ISSUES.md` ergänzen.

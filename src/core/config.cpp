@@ -28,6 +28,7 @@ JsonDocument BruceConfig::toJson() const {
     setting["ledBright"] = ledBright;
     setting["ledColor"] = String(ledColor, HEX);
     setting["ledBlinkEnabled"] = ledBlinkEnabled;
+    setting["ledOffWithDisplay"] = ledOffWithDisplay;
     setting["ledEffect"] = ledEffect;
     setting["ledEffectSpeed"] = ledEffectSpeed;
     setting["ledEffectDirection"] = ledEffectDirection;
@@ -233,6 +234,12 @@ void BruceConfig::fromFile(bool checkFS) {
     }
     if (!setting["ledBlinkEnabled"].isNull()) {
         ledBlinkEnabled = setting["ledBlinkEnabled"].as<int>();
+    } else {
+        count++;
+        log_e("Fail");
+    }
+    if (!setting["ledOffWithDisplay"].isNull()) {
+        ledOffWithDisplay = setting["ledOffWithDisplay"].as<int>();
     } else {
         count++;
         log_e("Fail");
@@ -478,6 +485,7 @@ void BruceConfig::validateConfig() {
     validateLedBrightValue();
     validateLedColorValue();
     validateLedBlinkEnabledValue();
+    validateLedOffWithDisplayValue();
     validateLedEffectValue();
     validateLedEffectSpeedValue();
     validateLedEffectDirectionValue();
@@ -601,6 +609,16 @@ void BruceConfig::setLedBlinkEnabled(int value) {
 
 void BruceConfig::validateLedBlinkEnabledValue() {
     if (ledBlinkEnabled > 1) ledBlinkEnabled = 1;
+}
+
+void BruceConfig::setLedOffWithDisplay(int value) {
+    ledOffWithDisplay = value;
+    validateLedOffWithDisplayValue();
+    saveFile();
+}
+
+void BruceConfig::validateLedOffWithDisplayValue() {
+    if (ledOffWithDisplay < 0 || ledOffWithDisplay > 1) ledOffWithDisplay = 1;
 }
 
 void BruceConfig::setLedEffect(int value) {

@@ -103,8 +103,12 @@ void ConfigMenu::ledMenu() {
             {String("LED Blink: ") + (bruceConfig.ledBlinkEnabled ? "ON" : "OFF"),
              [this]() {
                  // Toggle LED blink setting
-                 bruceConfig.ledBlinkEnabled = !bruceConfig.ledBlinkEnabled;
-                 bruceConfig.saveFile();
+                 bruceConfig.setLedBlinkEnabled(!bruceConfig.ledBlinkEnabled);
+             }                                                                            },
+            {String("LED follows Display: ") + (bruceConfig.ledOffWithDisplay ? "ON" : "OFF"),
+             [this]() {
+                 bruceConfig.setLedOffWithDisplay(!bruceConfig.ledOffWithDisplay);
+                 updateLedDisplayState();
              }                                                                            },
             {"Back",                                                               []() {}},
         };

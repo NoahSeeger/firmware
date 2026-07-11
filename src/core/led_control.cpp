@@ -79,6 +79,35 @@ uint32_t alterOneColorChannel(uint32_t color, uint16_t newR, uint16_t newG, uint
 }
 
 TaskHandle_t ledEffectTaskHandle = NULL;
+static bool ledOutputSuppressed = false;
+static bool ledInitialized = false;
+
+static bool shouldSuppressLedOutput() {
+    return bruceConfig.ledOffWithDisplay && (isScreenOff || isSleeping);
+}
+
+void updateLedDisplayState() {
+    if (!ledInitialized) return;
+
+    const bool suppressOutput = shouldSuppressLedOutput();
+    if (suppressOutput == ledOutputSuppressed) return;
+
+    ledOutputSuppressed = suppressOutput;
+    if (suppressOutput) {
+        fill_solid(leds, LED_COUNT, CRGB::Black);
+        FastLED.show();
+        return;
+    }
+
+    FastLED.setBrightness(255 * bruceConfig.ledBright / 100);
+    if (bruceConfig.ledEffect == LED_EFFECT_SOLID || ledEffectTaskHandle == NULL) {
+        setLedColor(bruceConfig.ledColor);
+    } else {
+        // The effect task will render its next frame; clear the stale black
+        // output immediately so wake-up does not leave the LED dark.
+        FastLED.show();
+    }
+}
 
 void ledEffectTask(void *pvParameters) {
     short hueStep = 360 / LED_COUNT;
@@ -87,6 +116,12 @@ void ledEffectTask(void *pvParameters) {
     int frame = 0;
     uint64_t start_time = esp_timer_get_time() / 1000;
     while (1) {
+        updateLedDisplayState();
+        if (ledOutputSuppressed) {
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
+
         CRGB baseColor = isPreviewLed ? previewLedColor : bruceConfig.ledColor;
         int ledEffect = isPreviewLed ? previewLedEffect : bruceConfig.ledEffect;
         int ledEffectSpeed = isPreviewLed ? previewLedEffectSpeed : bruceConfig.ledEffectSpeed;
@@ -297,6 +332,7 @@ void beginLed() {
 #else
     FastLED.addLeds<LED_TYPE, RGB_LED, LED_ORDER>(leds, LED_COUNT);
 #endif
+    ledInitialized = true;
 
     /* The default FastLED driver takes over control of the RMT interrupt
      * handler, making it hard to use the RMT device for other
@@ -363,7 +399,7 @@ void setLedColor(CRGB color) {
 #endif
     } else {
         for (int i = 0; i < LED_COUNT; i++) leds[i] = color;
-        FastLED.show();
+        if (!ledOutputSuppressed) FastLED.show();
     }
 }
 
@@ -378,7 +414,7 @@ void setLedBrightness(int value) {
     value = max(0, min(100, value));
     int bright = 255 * value / 100;
     FastLED.setBrightness(bright);
-    FastLED.show();
+    if (!ledOutputSuppressed) FastLED.show();
 }
 
 #define BrucePurple 9830500 // Custom purple color for Bruce

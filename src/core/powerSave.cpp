@@ -1,6 +1,9 @@
 #include "powerSave.h"
 #include "display.h"
 #include "settings.h"
+#ifdef HAS_RGB_LED
+#include "led_control.h"
+#endif
 
 /* Check if it's time to put the device to sleep */
 #define SCREEN_OFF_DELAY 5000
@@ -25,12 +28,18 @@ void checkPowerSaveTime() {
         setBrightness(startDimmerBright, false);
     } else if (elapsed >= (dimmerSetMs + SCREEN_OFF_DELAY) && !isScreenOff && !isSleeping) {
         isScreenOff = true;
+#ifdef HAS_RGB_LED
+        updateLedDisplayState();
+#endif
         fadeOutScreen(startDimmerBright);
     }
 }
 
 void sleepModeOn() {
     isSleeping = true;
+#ifdef HAS_RGB_LED
+    updateLedDisplayState();
+#endif
     setCpuFrequencyMhz(80);
 
     int startDimmerBright = bruceConfig.bright / 3;
@@ -54,6 +63,9 @@ void sleepModeOff() {
     panelSleep(false); // wake the screen back up
 
     getBrightness();
+#ifdef HAS_RGB_LED
+    updateLedDisplayState();
+#endif
     enableCore0WDT();
 #if SOC_CPU_CORES_NUM > 1
     enableCore1WDT();

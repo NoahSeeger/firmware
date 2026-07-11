@@ -4,6 +4,9 @@
 #include "mykeyboard.h"
 #include "settings.h" //for timeStr
 #include "utils.h"
+#ifdef HAS_RGB_LED
+#include "led_control.h"
+#endif
 #include <JPEGDecoder.h>
 #include <interface.h> //for charging ischarging to print charging indicator
 #include <memory>
@@ -117,6 +120,9 @@ bool wakeUpScreen() {
         isScreenOff = false;
         dimmer = false;
         getBrightness();
+#ifdef HAS_RGB_LED
+        updateLedDisplayState();
+#endif
         vTaskDelay(pdMS_TO_TICKS(200));
         return true;
     } else if (dimmer) {

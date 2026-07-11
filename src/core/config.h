@@ -53,6 +53,7 @@ public:
     int ledBright = 50;
     uint32_t ledColor = 0x960064;
     int ledBlinkEnabled = 1;
+    int ledOffWithDisplay = 1;
     int ledEffect = 0;
     int ledEffectSpeed = 5;
     int ledEffectDirection = 1;
@@ -143,6 +144,8 @@ public:
     void validateLedColorValue();
     void setLedBlinkEnabled(int value);
     void validateLedBlinkEnabledValue();
+    void setLedOffWithDisplay(int value);
+    void validateLedOffWithDisplayValue();
     void setLedEffect(int value);
     void validateLedEffectValue();
     void setLedEffectSpeed(int value);
