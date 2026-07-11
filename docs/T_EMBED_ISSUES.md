@@ -39,6 +39,17 @@ Der Fokus liegt auf dem T-Embed CC1101 Plus; andere Boards werden erst danach
 
 ## Noch zu verifizieren
 
+Zusätzliche technische Ursache aus der zweiten Prüfung:
+
+- SD-Dateimanager und serielle BadUSB-Befehle löschten das USB-HID-Objekt nach
+  dem Lauf. TinyUSB behält den registrierten Gerätezeiger länger; das konnte
+  spätere Läufe und Reconnects destabilisieren.
+- Diese Einstiegspfade behalten das USB-HID-Objekt nun ebenfalls am Leben.
+- Einzelne HID-Reports werden bei einem kurzen Endpoint-Aussetzer bis zu 100 ms
+  erneut versucht.
+- Der T-Embed-Build wurde erfolgreich erzeugt; offen ist der Test auf echter
+  Hardware.
+
 - Build für `lilygo-t-embed-cc1101`.
 - USB-Enumeration und HID-Ready-Zustand mit einem Windows-PC.
 - Bad USB mit einem kurzen Testskript (z. B. `STRING` und `ENTER`).

@@ -29,9 +29,10 @@ uint32_t badusbFileCallback(cmd *c) {
 
 #ifdef USB_as_HID
     ducky_startKb(hid_usb, false);
-    key_input(*fs, filepath, hid_usb);
-    delete hid_usb;
-    hid_usb = nullptr;
+    if (!returnToMenu && hid_usb != nullptr) { key_input(*fs, filepath, hid_usb); }
+    // TinyUSB retains the registered HID device for the lifetime of the
+    // USB device; do not delete it between BadUSB sessions.
+    if (hid_usb != nullptr) hid_usb->releaseAll();
 
     // TODO: need to reinit serial when finished
     // Kb.end();
@@ -62,9 +63,10 @@ uint32_t badusbBufferCallback(cmd *c) {
 
 #ifdef USB_as_HID
     ducky_startKb(hid_usb, false);
-    key_input(PSRamFS, tmpfilepath, hid_usb);
-    delete hid_usb;
-    hid_usb = nullptr;
+    if (!returnToMenu && hid_usb != nullptr) { key_input(PSRamFS, tmpfilepath, hid_usb); }
+    // TinyUSB retains the registered HID device for the lifetime of the
+    // USB device; do not delete it between BadUSB sessions.
+    if (hid_usb != nullptr) hid_usb->releaseAll();
 
     PSRamFS.remove(tmpfilepath);
     return true;

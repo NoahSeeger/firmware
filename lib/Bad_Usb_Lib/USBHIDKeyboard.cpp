@@ -94,7 +94,14 @@ void USBHIDKeyboard::sendReport(KeyReport *keys) {
     report.reserved = 0;
     report.modifier = keys->modifiers;
     memcpy(report.keycode, keys->keys, 6);
-    hid.SendReport(HID_REPORT_ID_KEYBOARD, &report, sizeof(report));
+
+    // A host can briefly leave the interrupt endpoint unavailable during
+    // enumeration, resume, or a cable reconnect. Do not silently lose the
+    // key event in that short window.
+    for (uint8_t attempt = 0; attempt < 20; attempt++) {
+        if (hid.SendReport(HID_REPORT_ID_KEYBOARD, &report, sizeof(report))) return;
+        delay(5);
+    }
 }
 
 void USBHIDKeyboard::setShiftKeyReports(bool set) { shiftKeyReports = set; }

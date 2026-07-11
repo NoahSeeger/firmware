@@ -816,9 +816,13 @@ String loopSD(FS &fs, bool filePicker, String allowed_ext, String rootPath) {
                     if (filepath.endsWith(".txt")) {
                         options.push_back({"BadUSB Run", [&]() {
                                                ducky_startKb(hid_usb, false);
-                                               key_input(fs, filepath, hid_usb);
-                                               delete hid_usb;
-                                               hid_usb = nullptr;
+                                               if (!returnToMenu && hid_usb != nullptr) {
+                                                   key_input(fs, filepath, hid_usb);
+                                               }
+                                               // TinyUSB retains the registered HID device for the
+                                               // lifetime of the USB device. Keep the object alive so
+                                               // a later BadUSB run cannot dereference freed memory.
+                                               if (hid_usb != nullptr) hid_usb->releaseAll();
                                                // TODO: reinit serial port
                                            }});
                         options.push_back({"USB HID Type", [&]() {
